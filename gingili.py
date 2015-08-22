@@ -84,6 +84,10 @@ flush_tick = 0
 
 safe_now = False
 
+wakeup = False
+
+wakeup_tick = 0
+
 pause = False
 
 pop_conn = None
@@ -457,6 +461,23 @@ def paused():
 
     return safe_now or pause
 
+def wake():
+    global wakeup
+    global wakeup_tick
+
+    wakeup = True
+    wakeup_tick = time.time()
+
+def lazy_mode():
+    global wakeup
+    global wakeup_tick
+
+    now = time.time()
+    if now - wakeup_tick > 60 * 2:
+        wakeup = False
+
+    return paused() or not wakeup
+
 def main():
     global refresh_interval
     global fill_rate_threshold
@@ -542,7 +563,10 @@ def main():
         if key == ord("q"):
             break
 
-        time.sleep(0.01)
+        if lazy_mode():
+            time.sleep(0.33)
+        else:
+            time.sleep(0.01)
 
     # Cleanups the camera and closes all opened windows.
     cleanup()
