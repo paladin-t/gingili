@@ -44,7 +44,7 @@ imutils
 
 ## Workflow
  * A thread receives commands via email to control the GINGILI service:
-  * Command `set_capture_interval N` sets intermittent capture interval;
+  * Command `set_capture_interval N` sets intermittent capture interval, N is time in seconds;
   * Command `pause` pauses monitoring;
   * Command `resume` resumes monitoring;
   * Command `request` requests to capture once and sends to applicant's email.
