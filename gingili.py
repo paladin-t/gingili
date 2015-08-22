@@ -1,0 +1,517 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2015 WRX. mailto:hellotony521@qq.com
+#
+# GINGILI is a program which turns a Raspberry Pi into a video guard monitor
+# using a USB webcam.
+#
+# Requirement:
+#   Raspberry Pi main board;
+#     USB webcam;
+#     Network connection, Wifi recommended;
+#   Raspbian, may need some modifications with other distribution versions;
+#     arp-scan tool;
+#   Python 2.7;
+#     OpenCV module for Python;
+#     imutils module for Python.
+
+import argparse
+import ConfigParser
+import cv2
+import datetime
+import email
+import imaplib
+import imutils
+import logging
+import logging.handlers
+import mimetypes
+import os
+import re
+import smtplib
+import subprocess
+import sys
+import threading
+import time
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
+
+# Configurations.
+config = ConfigParser.ConfigParser()
+config.read("gingili.ini")
+
+log_handler = logging.handlers.RotatingFileHandler("gingili.log", maxBytes = 1024 * 1024 * 1024)
+log_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(message)s"))
+logger = logging.getLogger('GINGILI')
+logger.addHandler(log_handler)
+logger.setLevel(logging.DEBUG)
+
+refresh_interval = 5 # Refreshes base frame.
+
+shot_interval = 1 # Screen capture interval if motion detected.
+
+flush_interval = 30 # Forces flushing interval even if didn't captured too many screenshots.
+
+capture_interval = 60 * 60 * 4 # Scheduled capture.
+
+parsing_interval = 60 * 2 # Email command parsing interval.
+
+fill_rate_threshold = 0.1 # Fill rate threshold for motion detection.
+
+save_folder = "screenshots" # Cache directory.
+
+mailto_list = map(lambda s: s.strip(), config.get("mail", "mailto_list").split(","))
+mail_smtp_host = config.get("mail", "mail_smtp_host")
+mail_pop_host = config.get("mail", "mail_pop_host")
+mail_user = config.get("mail", "mail_user")
+mail_pass = config.get("mail", "mail_pass")
+
+family_list = map(lambda s: s.strip(), config.get("safety", "family_list").split(","))
+
+config = None
+
+# Variables.
+shots = []
+
+args = None
+
+camera = None
+
+cached_frame = None
+
+flush_tick = 0
+
+safe_now = False
+
+pause = False
+
+pop_conn = None
+
+command = None
+
+command_from = None
+
+width = 0
+
+height = 0
+
+def log(msg):
+    print time_str() + " " + msg
+    logger.info(msg)
+
+def init():
+    global args
+    global camera
+    global save_folder
+    global width
+    global height
+
+    # Initializes arguments.
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-a", "--min-area", type = int, default = 500, help = "Minimum area size.")
+    args = vars(ap.parse_args())
+
+    # Initializes camera.
+    camera = cv2.VideoCapture(0)
+    time.sleep(0.25)
+
+    # Initializes variables.
+    width = camera.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
+    height = camera.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
+
+    # Initializes screenshot folder.
+    if not os.path.exists(save_folder):
+        os.mkdir(save_folder)
+
+def cleanup():
+    global camera
+    global shots
+    global save_folder
+
+    # Does cleanup OpenCV.
+    camera.release()
+    cv2.destroyAllWindows()
+
+    # Deletes screenshots.
+    for s in shots:
+        os.remove(s)
+
+    # Deletes screenshot folder.
+    if os.path.exists(save_folder):
+        os.rmdir(save_folder)
+
+def clear():
+    global shots
+
+    if len(shots) == 0:
+        return
+
+    for s in shots:
+        os.remove(s)
+    shots = []
+
+def time_str():
+    return datetime.datetime.now().strftime("%b-%d-%y %H:%M:%S")
+
+def motion_detect():
+    global args
+    global fill_rate_threshold
+    global width
+    global height
+    global cached_frame
+
+    # Grabs the current frame.
+    (grabbed, frame) = camera.read()
+
+    if not grabbed:
+        return "Not grabbed"
+
+    # Converts to image object.
+    img = cv2.cv.fromarray(frame)
+
+    # Resizes the frame, converts it to grayscale, and blurs it.
+    frame = imutils.resize(frame, width = 500)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (21, 21), 0)
+
+    # If the first frame is None, initializes it.
+    if cached_frame is None:
+        cached_frame = gray
+
+        return (True, False, None, None, None, None, None, None)
+
+    # Computes the absolute difference between the current frame and the first frame.
+    frame_delta = cv2.absdiff(cached_frame, gray)
+    thresh = cv2.threshold(frame_delta, 25, 255, cv2.THRESH_BINARY)[1]
+
+    # Dilates the thresholded image to fill in holes, then finds contours on thresholded image.
+    thresh = cv2.dilate(thresh, None, iterations = 2)
+    (cnts, _) = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Processes motion contents.
+    area = 0
+    for c in cnts:
+        # Ignores small ones.
+        if cv2.contourArea(c) < args["min_area"]:
+            continue
+
+        # Calculates area.
+        (x, y, w, h) = cv2.boundingRect(c)
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        area += w * h
+
+    # Checks whether it's enough filled.
+    filled = area / (width * height)
+    if filled > fill_rate_threshold and filled < 1.0:
+        return (False, True, frame, img, gray, frame_delta, thresh, cnts)
+
+    return (False, False, frame, img, gray, frame_delta, thresh, cnts)
+
+def save(f):
+    global shots
+
+    # Saves to a file.
+    p = save_folder + "/" + time_str() + ".jpg"
+    cv2.cv.SaveImage(p, f)
+
+    return p
+
+def routine_flush(imgs, rcvs):
+    global mail_smtp_host
+    global mail_user
+    global mail_pass
+
+    msg = MIMEMultipart()
+    msg["From"] = mail_user
+    msg["To"] = ",".join(rcvs)
+    msg["Subject"] = "Captured by GINGILI on RasPi"
+
+    log("Sending mail to: " + msg["To"] + ".")
+
+    txt = MIMEText("Flushed at " + time_str(), "plain", "gb2312")     
+    msg.attach(txt)    
+
+    for i in range(len(imgs)):
+        file = imgs[i]
+        image = MIMEImage(open(file, "rb").read())
+        image.add_header("Content-ID", "<image" + str(i + 1) + ">")
+        msg.attach(image)
+
+    server = smtplib.SMTP()
+    server.connect(mail_smtp_host)
+    server.login(mail_user, mail_pass)
+    server.sendmail(msg["From"], msg["To"], msg.as_string())
+    server.quit()
+
+    for i in imgs:
+        os.remove(i)
+
+def async_flush(imgs, rcvs):
+    t = threading.Thread(target = routine_flush, args = [imgs, rcvs])
+    t.setDaemon(True)
+    t.start()
+
+def flush():
+    global shots
+    global mailto_list
+    global flush_interval
+    global flush_tick
+
+    count = 10
+
+    time_to_flush = False
+    now = time.time()
+    if len(shots) > 0:
+        if flush_tick == 0:
+            flush_tick = now
+        if now - flush_tick >= flush_interval:
+            flush_tick = now
+            time_to_flush = True
+    else:
+        flush_tick = 0
+
+    imgs = []
+    if len(shots) > count or time_to_flush:
+        for i in range(count):
+            if i >= len(shots):
+                break
+            imgs.append(shots[i])
+    for i in imgs:
+        shots.remove(i)
+
+    if len(imgs) > 0:
+        async_flush(imgs, mailto_list)
+        flush_tick = now
+
+def render(frame, frame_delta, thresh, text):
+    cv2.putText(frame, "Room Status: {}".format(text), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+    cv2.putText(frame, time_str(), (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
+
+    cv2.imshow("Security Feed", frame)
+    cv2.imshow("Frame Delta", frame_delta)
+    cv2.imshow("Thresh", thresh)
+
+def routine_safe():
+    global family_list
+    global safe_now
+
+    while True:
+        s = False
+        for f in family_list:
+            for i in range(15):
+                pingaling = subprocess.Popen(["sudo", "arp-scan", "--interface=wlan0", "--retry=5", "--timeout=100", f], shell = False, stdin = subprocess.PIPE, stdout = subprocess.PIPE)
+                while True:
+                    pingaling.stdout.flush()
+                    line = pingaling.stdout.readline()
+                    if not line:
+                        break
+
+                    if f in line:
+                        s = True
+
+                        break
+
+                if s:
+                    break
+
+            if s:
+                break
+
+        if safe_now != s:
+            log("Family member detected, pause flushing." if s else "No family member detected, resume flushing.")
+        safe_now = s
+
+        time.sleep(30)
+
+def check_safe():
+    t = threading.Thread(target = routine_safe)
+    t.setDaemon(True)
+    t.start()
+
+def extract_body(payload):
+    if isinstance(payload, str):
+        return payload
+    else:
+        return '\n'.join([extract_body(part.get_payload()) for part in payload])
+
+def routine_command():
+    global command
+    global command_from
+    global pop_conn
+    global mail_pop_host
+    global mail_user
+    global mail_pass
+    global parsing_interval
+
+
+    pattern = r"(\<.*?\>)"
+
+    while True:
+        if command != None:
+            continue
+
+        try:
+            pop_conn = imaplib.IMAP4_SSL(mail_pop_host, 993)
+            pop_conn.login(mail_user, mail_pass)
+            pop_conn.select()
+            typ, data = pop_conn.search(None, "UNSEEN")
+            try:
+                for num in data[0].split():
+                    typ, msgData = pop_conn.fetch(num, "(RFC822)")
+                    for responsePart in msgData:
+                        if isinstance(responsePart, tuple):
+                            msg = email.message_from_string(responsePart[1])
+                            subject = msg["subject"]
+                            command_from = msg["from"]
+                            command_from = re.findall(pattern, command_from, re.M)
+                            if len(command_from) > 0:
+                                command_from = command_from[0].replace("<", "").replace(">", "")
+                            command = subject.strip()
+                            payload = msg.get_payload()
+                            body = extract_body(payload)
+                    typ, response = pop_conn.store(num, "+FLAGS", r"(\Seen)")
+            except:
+                pass
+
+            pop_conn.close()
+            pop_conn.logout()
+
+            time.sleep(parsing_interval)
+        except:
+            pass
+
+    pop_conn.close()
+    pop_conn.logout()
+
+def check_command():
+    t = threading.Thread(target = routine_command)
+    t.setDaemon(True)
+    t.start()
+
+def parse_command(img):
+    global command
+    global command_from
+    global capture_interval
+    global pause
+
+    if command == None:
+        return
+
+    log("Received command: " + command + ".")
+
+    if command.startswith("set_capture_interval"):
+        t = command[len("set_capture_interval") : ]
+        t = int(t)
+        capture_interval = t
+    elif command.startswith("pause"):
+        pause = True
+    elif command.startswith("resume"):
+        pause = False
+    elif command.startswith("request"):
+        if isinstance(command_from, str):
+            imgs = [save(img)]
+            async_flush(imgs, [command_from])
+
+    command = None
+    command_from = None
+
+def paused():
+    global safe_now
+    global pause
+
+    return safe_now or pause
+
+def main():
+    global refresh_interval
+    global fill_rate_threshold
+    global args
+    global camera
+    global cached_frame
+    global safe_now
+    global mailto_list
+
+    log("Start gingili.")
+
+    # Initializes.
+    init()
+
+    # Starts a thread to check whether it's safe.
+    check_safe()
+
+    # Starts a thread to process email commands.
+    check_command()
+
+    # Initializes states.
+    occupied = False
+
+    cached_frame = None
+
+    now = time.time()
+
+    refresh_timestamp = now
+
+    shot_timestamp = now
+
+    capture_timestamp = now
+
+    # Main loop.
+    while True:
+        # Detects motion.
+        (cont, filled, frame, img, gray, frame_delta, thresh, cnts) = motion_detect()
+        if cont == "Not grabbed":
+            break
+
+        if cont:
+            continue
+
+        text = "Unoccupied"
+
+        # Reinitializes the first frame every 'refresh_interval' seconds.
+        now = time.time()
+        if now - refresh_timestamp > refresh_interval:
+            refresh_timestamp = now
+            cached_frame = gray
+
+            continue
+
+        # Counts to capture.
+        if not paused() and now - capture_timestamp > capture_interval:
+            capture_timestamp = now
+            imgs = [save(img)]
+            async_flush(imgs, mailto_list)
+
+        # Checks fill rate.
+        if filled:
+            text = "Occupied"
+            # Saves a screenshot every 'shot_interval' seconds.
+            if not paused() and now - shot_timestamp > shot_interval:
+                shot_timestamp = now
+                shots.append(save(img))
+
+        # Parses command.
+        parse_command(img)
+
+        # Checks whether it's safe now.
+        if paused():
+            clear()
+
+        # Tries to send screenshots.
+        flush()
+
+        # Shows the frames.
+        render(frame, frame_delta, thresh, text)
+
+        # If the `q` key is pressed, breaks from the loop.
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord("q"):
+            break
+
+        time.sleep(0.01)
+
+    # Cleanups the camera and closes all opened windows.
+    cleanup()
+
+    log("Shutdown gingili.")
+
+main()
