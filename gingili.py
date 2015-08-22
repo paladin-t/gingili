@@ -217,6 +217,39 @@ def save(f):
 
     return p
 
+def routine_help(rcv):
+    global mail_smtp_host
+    global mail_user
+    global mail_pass
+
+    msg = MIMEMultipart()
+    msg["From"] = mail_user
+    msg["To"] = rcv
+    msg["Subject"] = "Captured by GINGILI on RasPi"
+
+    log("Sending mail to: " + msg["To"] + ".")
+
+    txt = """
+        Command `help` shows help information;\n
+        Command `set_capture_interval N` sets intermittent capture interval, N is time in seconds;\n
+        Command `pause` pauses monitoring;\n
+        Command `resume` resumes monitoring;\n
+        Command `request` requests to capture once and sends to applicant's email.\n
+    """
+    txt = MIMEText(txt, "plain", "gb2312")
+    msg.attach(txt)
+
+    server = smtplib.SMTP()
+    server.connect(mail_smtp_host)
+    server.login(mail_user, mail_pass)
+    server.sendmail(msg["From"], msg["To"], msg.as_string())
+    server.quit()
+
+def async_help(rcv):
+    t = threading.Thread(target = routine_help, args = [rcv])
+    t.setDaemon(True)
+    t.start()
+
 def routine_flush(imgs, rcvs):
     global mail_smtp_host
     global mail_user
@@ -400,7 +433,9 @@ def parse_command(img):
 
     log("Received command: " + command + ".")
 
-    if command.startswith("set_capture_interval"):
+    if command.startswith("help"):
+        async_help(command_from)
+    elif command.startswith("set_capture_interval"):
         t = command[len("set_capture_interval") : ]
         t = int(t)
         capture_interval = t
