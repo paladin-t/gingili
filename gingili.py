@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 WRX. mailto:hellotony521@qq.com
+# Version 1.0.20
+# License LGPL v3
+# Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
 # GINGILI is a program which turns a Raspberry Pi into a video guard monitor
 # using a USB webcam.
@@ -51,15 +53,15 @@ refresh_interval = 5 # Refreshes base frame.
 
 shot_interval = 1 # Screen capture interval if motion detected.
 
-flush_interval = 30 # Forces flushing interval even if didn't captured too many screenshots.
+flush_interval = 30 # Forces flushing interval even if didn't captured too many captures.
 
-capture_interval = 60 * 60 * 4 # Scheduled capture.
+capture_interval = 60 * 60 * 4 # Scheduled capture interval.
 
 parsing_interval = 60 * 2 # Email command parsing interval.
 
 fill_rate_threshold = 0.1 # Fill rate threshold for motion detection.
 
-save_folder = "screenshots" # Cache directory.
+save_folder = "gingili_captures" # Cache directory.
 
 mailto_list = map(lambda s: s.strip(), config.get("mail", "mailto_list").split(","))
 mail_smtp_host = config.get("mail", "mail_smtp_host")
@@ -124,7 +126,7 @@ def init():
     width = camera.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
     height = camera.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
 
-    # Initializes screenshot folder.
+    # Initializes capture folder.
     if not os.path.exists(save_folder):
         os.mkdir(save_folder)
 
@@ -137,11 +139,11 @@ def cleanup():
     camera.release()
     cv2.destroyAllWindows()
 
-    # Deletes screenshots.
+    # Deletes captures.
     for s in shots:
         os.remove(s)
 
-    # Deletes screenshot folder.
+    # Deletes capture folder.
     if os.path.exists(save_folder):
         os.rmdir(save_folder)
 
@@ -322,7 +324,7 @@ def flush():
         flush_tick = now
 
 def render(frame, frame_delta, thresh, text):
-    cv2.putText(frame, "Room Status: {}".format(text), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+    cv2.putText(frame, "Status: {}".format(text), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
     cv2.putText(frame, time_str(), (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
 
     cv2.imshow("Security Feed", frame)
@@ -381,7 +383,6 @@ def routine_command():
     global mail_pass
     global parsing_interval
 
-
     pattern = r"(\<.*?\>)"
 
     while True:
@@ -404,7 +405,7 @@ def routine_command():
                             command_from = re.findall(pattern, command_from, re.M)
                             if len(command_from) > 0:
                                 command_from = command_from[0].replace("<", "").replace(">", "")
-                            command = subject.strip()
+                            command = subject.strip().lower()
                             payload = msg.get_payload()
                             body = extract_body(payload)
                     typ, response = pop_conn.store(num, "+FLAGS", r"(\Seen)")
@@ -437,17 +438,17 @@ def parse_command(img):
 
     log("Received command: " + command + ".")
 
-    if command.startswith("help"):
+    if command == "help":
         async_help(command_from)
     elif command.startswith("set_capture_interval"):
         t = command[len("set_capture_interval") : ]
         t = int(t)
         capture_interval = t
-    elif command.startswith("pause"):
+    elif command.startswith == "pause":
         pause = True
-    elif command.startswith("resume"):
+    elif command.startswith == "resume":
         pause = False
-    elif command.startswith("request"):
+    elif command.startswith == "request":
         if isinstance(command_from, str):
             imgs = [save(img)]
             async_flush(imgs, [command_from])
@@ -540,7 +541,7 @@ def main():
         # Checks fill rate.
         if filled:
             text = "Occupied"
-            # Saves a screenshot every 'shot_interval' seconds.
+            # Saves a capture every 'shot_interval' seconds.
             if not paused() and now - shot_timestamp > shot_interval:
                 shot_timestamp = now
                 shots.append(save(img))
@@ -552,7 +553,7 @@ def main():
         if paused():
             clear()
 
-        # Tries to send screenshots.
+        # Tries to send captures.
         flush()
 
         # Shows the frames.
