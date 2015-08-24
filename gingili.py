@@ -357,7 +357,7 @@ def routine_safe():
             if s != None:
                 break
 
-        if not not safe_now != not not s:
+        if (not not safe_now) != (not not s):
             if s != None:
                 log("Family member " + s + " detected, pause flushing.")
             else:
