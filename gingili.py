@@ -336,7 +336,7 @@ def routine_safe():
     global safe_now
 
     while True:
-        s = False
+        s = None
         for f in family_list:
             for i in range(15):
                 pingaling = subprocess.Popen(["sudo", "arp-scan", "--interface=wlan0", "--retry=5", "--timeout=100", f], shell = False, stdin = subprocess.PIPE, stdout = subprocess.PIPE)
@@ -347,18 +347,21 @@ def routine_safe():
                         break
 
                     if f in line:
-                        s = True
+                        s = f
 
                         break
 
-                if s:
+                if s != None:
                     break
 
-            if s:
+            if s != None:
                 break
 
-        if safe_now != s:
-            log("Family member detected, pause flushing." if s else "No family member detected, resume flushing.")
+        if not not safe_now != not not s:
+            if s != None:
+                log("Family member " + s + " detected, pause flushing.")
+            else:
+                log("No family member detected, resume flushing.")
         safe_now = s
 
         time.sleep(30)
