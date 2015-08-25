@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Version 1.0.20
+# Version 1.0.3
 # License LGPL v3
 # Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
@@ -228,6 +228,13 @@ def routine_help(rcv):
     global mail_user
     global mail_pass
 
+    server = smtplib.SMTP()
+    server.connect(mail_smtp_host)
+    server.login(mail_user, mail_pass)
+
+    if not rcv.startswith("<"): rcv = "<" + rcv
+    if not rcv.endswith(">"): rcv = rcv + ">"
+
     msg = MIMEMultipart()
     msg["From"] = mail_user
     msg["To"] = rcv
@@ -240,15 +247,14 @@ def routine_help(rcv):
         Command `set_capture_interval N` sets intermittent capture interval, N is time in seconds;\n
         Command `pause` pauses monitoring;\n
         Command `resume` resumes monitoring;\n
-        Command `request` requests to capture once and sends to applicant's email.\n
+        Command `request` requests to capture once and sends to applicant's email;\n
+        Command `get` sends a capture once to receiver mail list.\n
     """
     txt = MIMEText(txt, "plain", "gb2312")
     msg.attach(txt)
 
-    server = smtplib.SMTP()
-    server.connect(mail_smtp_host)
-    server.login(mail_user, mail_pass)
     server.sendmail(msg["From"], msg["To"], msg.as_string())
+
     server.quit()
 
 def async_help(rcv):
@@ -261,26 +267,32 @@ def routine_flush(imgs, rcvs):
     global mail_user
     global mail_pass
 
-    msg = MIMEMultipart()
-    msg["From"] = mail_user
-    msg["To"] = ",".join(rcvs)
-    msg["Subject"] = "Captured by GINGILI on RasPi"
-
-    log("Sending mail to: " + msg["To"] + ".")
-
-    txt = MIMEText("Flushed at " + time_str(), "plain", "gb2312")     
-    msg.attach(txt)    
-
-    for i in range(len(imgs)):
-        file = imgs[i]
-        image = MIMEImage(open(file, "rb").read())
-        image.add_header("Content-ID", "<image" + str(i + 1) + ">")
-        msg.attach(image)
-
     server = smtplib.SMTP()
     server.connect(mail_smtp_host)
     server.login(mail_user, mail_pass)
-    server.sendmail(msg["From"], msg["To"], msg.as_string())
+
+    for rcv in rcvs:
+        if not rcv.startswith("<"): rcv = "<" + rcv
+        if not rcv.endswith(">"): rcv = rcv + ">"
+
+        msg = MIMEMultipart()
+        msg["From"] = mail_user
+        msg["To"] = rcv
+        msg["Subject"] = "Captured by GINGILI on RasPi"
+
+        log("Sending mail to: " + msg["To"] + ".")
+
+        txt = MIMEText("Flushed at " + time_str(), "plain", "gb2312")     
+        msg.attach(txt)    
+
+        for i in range(len(imgs)):
+            file = imgs[i]
+            image = MIMEImage(open(file, "rb").read())
+            image.add_header("Content-ID", "<image" + str(i + 1) + ">")
+            msg.attach(image)
+
+        server.sendmail(msg["From"], msg["To"], msg.as_string())
+
     server.quit()
 
     for i in imgs:
@@ -447,14 +459,17 @@ def parse_command(img):
         t = command[len("set_capture_interval") : ]
         t = int(t)
         capture_interval = t
-    elif command.startswith == "pause":
+    elif command == "pause":
         pause = True
-    elif command.startswith == "resume":
+    elif command == "resume":
         pause = False
-    elif command.startswith == "request":
+    elif command == "request":
         if isinstance(command_from, str):
             imgs = [save(img)]
             async_flush(imgs, [command_from])
+    elif command == "get":
+        imgs = [save(img)]
+        async_flush(imgs, mailto_list)
 
     command = None
     command_from = None
