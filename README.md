@@ -48,7 +48,8 @@ imutils
   * Command `set_capture_interval N` sets intermittent capture interval, N is time in seconds;
   * Command `pause` pauses monitoring;
   * Command `resume` resumes monitoring;
-  * Command `request` requests to capture once and sends to applicant's email.
+  * Command `request` requests to capture once and sends to applicant's email;
+  * Command `get` sends a capture once to receiver mail list.
  * A thread checks whether an IP address in `family_list` is reachable, GINGILI will change to safe state
  (pause monitoring) if at least one IP is reachable. It's recommended to set the family Wifi router's
  policy to assign static IP addresses for specific mobile phones, thus GINGILI would turn into safe mode
