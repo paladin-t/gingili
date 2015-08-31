@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Version 1.0.3
+# Version 1.0.4
 # License LGPL v3
 # Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
@@ -39,30 +39,48 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 
+###############################################################################
+
 # Configurations.
+
+# Opens configuration.
 config = ConfigParser.ConfigParser()
 config.read("gingili.ini")
 
+# Opens logging.
 log_handler = logging.handlers.RotatingFileHandler("gingili.log", maxBytes = 1024 * 1024 * 1024)
 log_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(message)s"))
 logger = logging.getLogger('GINGILI')
 logger.addHandler(log_handler)
 logger.setLevel(logging.DEBUG)
 
-refresh_interval = 5 # Refreshes base frame.
+# Basic refreshing interval.
+refresh_interval = 5
 
-shot_interval = 1 # Screen capture interval if motion detected.
+# Screen capture interval if motion detected.
+shot_interval = 1
 
-flush_interval = 30 # Forces flushing interval even if didn't captured too many captures.
+# Forces flushing interval even if didn't captured enough frames.
+flush_interval = 30
 
-capture_interval = 60 * 60 * 4 # Scheduled capture interval.
+# Scheduled periodicity capture interval, GINGILI captures and sends one frame
+# once this interval elapsed.
+capture_interval = 60 * 60 * 4
 
-parsing_interval = 60 * 2 # Email command parsing interval.
+# Email command parsing interval, GINGILI checks commands via email once this
+# interval elapsed.
+parsing_interval = 60 * 2
 
-fill_rate_threshold = 0.1 # Fill rate threshold for motion detection.
+# Fill rate threshold for motion detection, maximum to 1.0. 
+fill_rate_threshold = 0.1
 
-save_folder = "gingili_captures" # Cache directory.
+# Cache directory to save captures temporarily.
+save_folder = "gingili_captures"
 
+normal_reason = "Captured by GINGILI on RasPi"
+motion_reason = "Motion detected by GINGILI on RasPi"
+
+# Reads configuration from a file.
 mailto_list = map(lambda s: s.strip(), config.get("mail", "mailto_list").split(","))
 mail_smtp_host = config.get("mail", "mail_smtp_host")
 mail_pop_host = config.get("mail", "mail_pop_host")
@@ -71,9 +89,13 @@ mail_pass = config.get("mail", "mail_pass")
 
 family_list = map(lambda s: s.strip(), config.get("safety", "family_list").split(","))
 
+# Finishes reading.
 config = None
 
+###############################################################################
+
 # Variables.
+
 shots = []
 
 args = None
@@ -101,6 +123,8 @@ command_from = None
 width = 0
 
 height = 0
+
+###############################################################################
 
 def log(msg):
     print time_str() + " " + msg
@@ -187,11 +211,13 @@ def motion_detect():
 
         return (True, False, None, None, None, None, None, None)
 
-    # Computes the absolute difference between the current frame and the first frame.
+    # Computes the absolute difference between the current frame and the first
+    # frame.
     frame_delta = cv2.absdiff(cached_frame, gray)
     thresh = cv2.threshold(frame_delta, 25, 255, cv2.THRESH_BINARY)[1]
 
-    # Dilates the thresholded image to fill in holes, then finds contours on thresholded image.
+    # Dilates the thresholded image to fill in holes, then finds contours on
+    # thresholded image.
     thresh = cv2.dilate(thresh, None, iterations = 2)
     (cnts, _) = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -238,7 +264,7 @@ def routine_help(rcv):
     msg = MIMEMultipart()
     msg["From"] = mail_user
     msg["To"] = rcv
-    msg["Subject"] = "Captured by GINGILI on RasPi"
+    msg["Subject"] = "GINGILI commands list"
 
     log("Sending mail to: " + msg["To"] + ".")
 
@@ -262,7 +288,7 @@ def async_help(rcv):
     t.setDaemon(True)
     t.start()
 
-def routine_flush(imgs, rcvs):
+def routine_flush(imgs, rcvs, reason):
     global mail_smtp_host
     global mail_user
     global mail_pass
@@ -278,7 +304,7 @@ def routine_flush(imgs, rcvs):
         msg = MIMEMultipart()
         msg["From"] = mail_user
         msg["To"] = rcv
-        msg["Subject"] = "Captured by GINGILI on RasPi"
+        msg["Subject"] = reason
 
         log("Sending mail to: " + msg["To"] + ".")
 
@@ -298,8 +324,8 @@ def routine_flush(imgs, rcvs):
     for i in imgs:
         os.remove(i)
 
-def async_flush(imgs, rcvs):
-    t = threading.Thread(target = routine_flush, args = [imgs, rcvs])
+def async_flush(imgs, rcvs, reason):
+    t = threading.Thread(target = routine_flush, args = [imgs, rcvs, reason])
     t.setDaemon(True)
     t.start()
 
@@ -308,6 +334,7 @@ def flush():
     global mailto_list
     global flush_interval
     global flush_tick
+    global motion_reason
 
     count = 10
 
@@ -332,7 +359,7 @@ def flush():
         shots.remove(i)
 
     if len(imgs) > 0:
-        async_flush(imgs, mailto_list)
+        async_flush(imgs, mailto_list, motion_reason)
         flush_tick = now
 
 def render(frame, frame_delta, thresh, text):
@@ -447,6 +474,7 @@ def parse_command(img):
     global command_from
     global capture_interval
     global pause
+    global normal_reason
 
     if command == None:
         return
@@ -466,10 +494,10 @@ def parse_command(img):
     elif command == "request":
         if isinstance(command_from, str):
             imgs = [save(img)]
-            async_flush(imgs, [command_from])
+            async_flush(imgs, [command_from], normal_reason)
     elif command == "get":
         imgs = [save(img)]
-        async_flush(imgs, mailto_list)
+        async_flush(imgs, mailto_list, normal_reason)
 
     command = None
     command_from = None
@@ -505,8 +533,9 @@ def main():
     global cached_frame
     global safe_now
     global mailto_list
+    global normal_reason
 
-    log("Start gingili.")
+    log("Start GINGILI.")
 
     # Initializes.
     init()
@@ -554,7 +583,7 @@ def main():
         if not paused() and now - capture_timestamp > capture_interval:
             capture_timestamp = now
             imgs = [save(img)]
-            async_flush(imgs, mailto_list)
+            async_flush(imgs, mailto_list, normal_reason)
 
         # Checks fill rate.
         if filled:
@@ -590,6 +619,6 @@ def main():
     # Cleanups the camera and closes all opened windows.
     cleanup()
 
-    log("Shutdown gingili.")
+    log("Shutdown GINGILI.")
 
 main()
