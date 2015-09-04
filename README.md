@@ -17,18 +17,24 @@ GINGILI is a program which turns a Raspberry Pi into a video guard monitor using
   * imutils module for Python.
 
 ## Setup
-arp-scan
-
-    sudo apt-get install arp-scan
+There are some requirement to be installed before using GINGILI.
 
 OpenCV
 
     sudo apt-get install cmake libopencv-dev
     sudo apt-get install libopencv-dev python-opencv
 
+arp-scan
+
+    sudo apt-get install arp-scan
+
+pip
+
+    sudo apt-get install python-pip
+
 imutils
 
-    pip install imutils
+    sudo pip install imutils
 
 ## Usage
  * Modify the configuration in `gingili.ini`:
