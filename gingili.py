@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Version 1.0.4
+# Version 1.0.5
 # License LGPL v3
 # Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
@@ -9,12 +9,13 @@
 # using a USB webcam.
 #
 # Requirement:
-#   Raspberry Pi main board;
+#   Raspberry Pi main board:
 #     USB webcam;
-#     Network connection, Wifi recommended;
-#   Raspbian, may need some modifications with other distribution versions;
-#     arp-scan tool;
-#   Python 2.7;
+#     Network connection, Wifi recommended.
+#   Raspbian, may need some modifications with other distribution versions:
+#     OpenCV library;
+#     arp-scan tool.
+#   Python 2.7:
 #     OpenCV module for Python;
 #     imutils module for Python.
 
@@ -475,11 +476,13 @@ def parse_command(img):
     global capture_interval
     global pause
     global normal_reason
+    global motion_reason
 
     if command == None:
         return
 
-    log("Received command: " + command + ".")
+    if command != normal_reason and command != motion_reason:
+        log("Received command: " + command + ".")
 
     if command == "help":
         async_help(command_from)
@@ -532,6 +535,7 @@ def main():
     global camera
     global cached_frame
     global safe_now
+    global pause
     global mailto_list
     global normal_reason
 
@@ -610,6 +614,12 @@ def main():
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
             break
+        elif key == ord("p"):
+            pause = True
+            log("Paused manually.")
+        elif key == ord("r"):
+            pause = False
+            log("Resumed manually.")
 
         if lazy_mode():
             time.sleep(0.33)
