@@ -11,11 +11,11 @@ Now it supplies guard monitor service using a USB webcam.
 
 ![](https://github.com/paladin-t/gingili/blob/master/topology.png)
 
- * A USB webcam is connected to Raspberry Pi to capture images;
- * The Raspberry Pi is connected to a same WAN domain with family members'
+ * A USB webcam is connected to a Raspberry Pi to capture images;
+ * The Raspberry Pi is connected to the same WAN domain with family members'
 mobile phones do;
- * GINGILI detects family members' mobile phones to tell whether you're home,
-and change monitor strategies;
+ * GINGILI detects family members' mobile phones to tell whether they're home,
+to change monitor strategies;
  * GINGILI receives command via email to manage it;
  * GINGILI sends captured images via email if motion detected or an interval
 heartbeat triggered.
@@ -25,7 +25,7 @@ heartbeat triggered.
  * Raspberry Pi main board:
   * USB webcam;
   * Network connection, Wifi recommended.
- * Raspbian, may need some modifications with other distribution versions:
+ * Raspbian:
   * OpenCV library;
   * arp-scan tool.
  * Python 2.7:
