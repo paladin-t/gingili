@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Version 1.0.5
+# Version 1.0.6
 # License LGPL v3
 # Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
@@ -152,6 +152,7 @@ def init():
     height = camera.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
 
     # Initializes capture folder.
+    cleanup()
     if not os.path.exists(save_folder):
         os.mkdir(save_folder)
 
@@ -167,6 +168,12 @@ def cleanup():
     # Deletes captures.
     for s in shots:
         os.remove(s)
+
+    for (dir_path, dir_names, file_names) in os.walk(save_folder):
+        for file_name in file_names:
+            path = save_folder + "/" + file_name
+            if os.path.isfile(patn):
+                os.remove(path)
 
     # Deletes capture folder.
     if os.path.exists(save_folder):
