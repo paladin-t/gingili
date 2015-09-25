@@ -382,36 +382,40 @@ def routine_safe():
     global family_list
     global safe_now
 
-    while True:
-        s = None
-        for f in family_list:
-            for i in range(15):
-                pingaling = subprocess.Popen(["sudo", "arp-scan", "--interface=wlan0", "--retry=5", "--timeout=100", f], shell = False, stdin = subprocess.PIPE, stdout = subprocess.PIPE)
-                while True:
-                    pingaling.stdout.flush()
-                    line = pingaling.stdout.readline()
-                    if not line:
+    try:
+        while True:
+            s = None
+            for f in family_list:
+                for i in range(15):
+                    pingaling = subprocess.Popen(["sudo", "arp-scan", "--interface=wlan0", "--retry=5", "--timeout=100", f], shell = False, stdin = subprocess.PIPE, stdout = subprocess.PIPE)
+                    while True:
+                        pingaling.stdout.flush()
+                        line = pingaling.stdout.readline()
+                        if not line:
+                            break
+    
+                        if f in line:
+                            s = f
+    
+                            break
+    
+                    if s != None:
                         break
-
-                    if f in line:
-                        s = f
-
-                        break
-
+    
                 if s != None:
                     break
-
-            if s != None:
-                break
-
-        if (not not safe_now) != (not not s):
-            if s != None:
-                log("Family member " + s + " detected, pause flushing.")
-            else:
-                log("No family member detected, resume flushing.")
-        safe_now = s
-
-        time.sleep(30)
+    
+            if (not not safe_now) != (not not s):
+                if s != None:
+                    log("Family member " + s + " detected, pause flushing.")
+                else:
+                    log("No family member detected, resume flushing.")
+            safe_now = s
+    
+            time.sleep(30)
+    except Exception, e:
+        log("Thread routine_safe got exception: " + str(e) + ".")
+        check_safe()
 
 def check_safe():
     t = threading.Thread(target = routine_safe)
@@ -459,15 +463,15 @@ def routine_command():
                             payload = msg.get_payload()
                             body = extract_body(payload)
                     typ, response = pop_conn.store(num, "+FLAGS", r"(\Seen)")
-            except:
-                pass
+            except Exception, e:
+                log("Thread routine_command got exception when parsing: " + str(e) + ".")
 
             pop_conn.close()
             pop_conn.logout()
 
             time.sleep(parsing_interval)
-        except:
-            pass
+        except Exception, e:
+            log("Thread routine_command got exception when connecting: " + str(e) + ".")
 
     pop_conn.close()
     pop_conn.logout()
