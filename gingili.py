@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Version 1.0.6
+# Version 1.0.7
 # License LGPL v3
 # Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
@@ -203,7 +203,9 @@ def motion_detect():
     (grabbed, frame) = camera.read()
 
     if not grabbed:
-        return "Not grabbed"
+        log("Nothing grabbed.")
+
+        return ("Not grabbed", False, None, None, None, None, None, None)
 
     # Converts to image object.
     img = cv2.cv.fromarray(frame)
