@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Version 1.0.7
+# Version 1.0.8
 # License LGPL v3
 # Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
@@ -152,18 +152,19 @@ def init():
     height = camera.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
 
     # Initializes capture folder.
-    cleanup()
+    cleanup(False)
     if not os.path.exists(save_folder):
         os.mkdir(save_folder)
 
-def cleanup():
+def cleanup(cleancam = True):
     global camera
     global shots
     global save_folder
 
     # Does cleanup OpenCV.
-    camera.release()
-    cv2.destroyAllWindows()
+    if cleancam:
+        camera.release()
+        cv2.destroyAllWindows()
 
     # Deletes captures.
     for s in shots:
