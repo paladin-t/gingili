@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=gingili
+Comment=gingili service
+Exec=python /home/pi/prj/gingili/gingili.py
+Terminal=true
+MultipleArgs=false
+Type=Application
+Categories=Application;Development;
+StartupNotify=true

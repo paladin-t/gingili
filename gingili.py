@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Version 1.0.8
+# Version 1.0.9
 # License LGPL v3
 # Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
@@ -43,6 +43,13 @@ from email.mime.image import MIMEImage
 ###############################################################################
 
 # Configurations.
+
+def script_path():
+    this_file = inspect.getfile(inspect.currentframe())
+
+    return os.path.abspath(os.path.dirname(this_file))
+
+os.chdir(script_path())
 
 # Opens configuration.
 config = ConfigParser.ConfigParser()
