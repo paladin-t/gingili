@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Version 1.1.0
+# Version 1.1.1
 # License LGPL v3
 # Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
@@ -197,6 +197,13 @@ def cleanup(cleancam = True):
     if os.path.exists(save_folder):
         os.rmdir(save_folder)
 
+def reboot():
+    cleanup()
+
+    log("Revive GINGILI.")
+
+    os.system("sudo reboot")
+
 def clear():
     global shots
 
@@ -303,6 +310,7 @@ def routine_help(rcv):
         Command `resume` resumes monitoring;\n
         Command `request` requests to capture once and sends to applicant's email;\n
         Command `get` sends a capture once to receiver mail list.\n
+        Command `reboot` reboots system.\n
     """
     txt = MIMEText(txt, "plain", "gb2312")
     msg.attach(txt)
@@ -579,6 +587,8 @@ def parse_command(img):
     elif command == "get":
         imgs = [save(img)]
         async_flush(imgs, mailto_list, normal_reason)
+    elif command == "reboot":
+        reboot()
 
     command = None
     command_from = None
@@ -614,11 +624,7 @@ def try_revive():
         return
 
     if time.time() - dead_time > revive_interval:
-        cleanup()
-
-        log("Revive GINGILI.")
-
-        os.system("sudo reboot")
+        reboot()
 
 def main():
     global refresh_interval
