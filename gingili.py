@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Version 1.1.1
+# Version 1.1.2
 # License LGPL v3
 # Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
@@ -57,7 +57,7 @@ config = ConfigParser.ConfigParser()
 config.read("gingili.ini")
 
 # Opens logging.
-log_handler = logging.handlers.RotatingFileHandler("gingili.log", maxBytes = 1024 * 1024 * 1024)
+log_handler = logging.handlers.RotatingFileHandler("gingili.log", maxBytes = 32 * 1024 * 1024)
 log_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(message)s"))
 logger = logging.getLogger('GINGILI')
 logger.addHandler(log_handler)
