@@ -126,6 +126,8 @@ dead = False
 
 dead_time = None
 
+lifeline = re.compile("received")
+
 wakeup = False
 
 wakeup_tick = 0
@@ -454,6 +456,7 @@ def routine_alive():
     global dead
     global alive_host
     global dead_time
+    global lifeline
 
     try:
         while True:
