@@ -482,7 +482,7 @@ def routine_alive():
 
 def check_alive():
     t = threading.Thread(target = routine_alive)
-    t = setDaemon(True)
+    t.setDaemon(True)
     t.start();
 
 def extract_body(payload):
