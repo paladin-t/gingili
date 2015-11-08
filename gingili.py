@@ -470,7 +470,8 @@ def routine_alive():
             dead = s == None
 
             if dead:
-                dead_time = time.time()
+                if dead_time == None:
+                    dead_time = time.time()
                 log("Dead.")
             else:
                 dead_time = None
