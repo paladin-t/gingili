@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Version 1.0.9
+# Version 1.1.0
 # License LGPL v3
 # Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
@@ -80,6 +80,9 @@ capture_interval = 60 * 60 * 4
 # interval elapsed.
 parsing_interval = 60 * 2
 
+# Reboot system if dead too long.
+revive_interval = 60 * 2
+
 # Fill rate threshold for motion detection, maximum to 1.0. 
 fill_rate_threshold = 0.1
 
@@ -97,6 +100,8 @@ mail_user = config.get("mail", "mail_user")
 mail_pass = config.get("mail", "mail_pass")
 
 family_list = map(lambda s: s.strip(), config.get("safety", "family_list").split(","))
+
+alive_host = config.get("misc", "alive_host")
 
 # Finishes reading.
 config = None
@@ -116,6 +121,10 @@ cached_frame = None
 flush_tick = 0
 
 safe_now = False
+
+dead = False
+
+dead_time = None
 
 wakeup = False
 
@@ -433,6 +442,48 @@ def check_safe():
     t.setDaemon(True)
     t.start()
 
+def routine_alive():
+    global dead
+    global alive_host
+    global dead_time
+
+    try:
+        while True:
+            s = None
+            for i in range(15):
+                pingaling = subprocess.Popen(["ping", "-c 2", alive_host], shell = False, stdin = subprocess.PIPE, stdout = subprocess.PIPE)
+                while True:
+                    pingaling.stdout.flush()
+                    line = pingaling.stdout.readline()
+                    if not line:
+                        break
+
+                    igot = re.findall(lifeline,line)
+                    if igot != 0:
+                        s = igot
+
+                        break;
+
+                if s != None:
+                    break
+
+            dead = s == None
+
+            if dead:
+                dead_time = time.time()
+            else:
+                dead_time = None
+
+            time.sleep(30)
+    except Exception, e:
+        log("Thread routine_alive got exception: " + str(e) + ".")
+        check_safe()
+
+def check_alive():
+    t = threading.Thread(target = routine_alive)
+    t = setDaemon(True)
+    t.start();
+
 def extract_body(payload):
     if isinstance(payload, str):
         return payload
@@ -550,6 +601,17 @@ def lazy_mode():
 
     return paused() or not wakeup
 
+def try_revive():
+    global dead_time
+    global revive_interval
+
+    if time.time() - dead_time > revive_interval:
+        cleanup()
+
+        log("Revive GINGILI.")
+
+        os.system("sudo reboot")
+
 def main():
     global refresh_interval
     global fill_rate_threshold
@@ -647,6 +709,9 @@ def main():
             time.sleep(0.33)
         else:
             time.sleep(0.01)
+
+        # Revives system if it's dead.
+        try_revive()
 
     # Cleanups the camera and closes all opened windows.
     cleanup()
