@@ -181,7 +181,7 @@ def cleanup(cleancam = True):
     for (dir_path, dir_names, file_names) in os.walk(save_folder):
         for file_name in file_names:
             path = save_folder + "/" + file_name
-            if os.path.isfile(patn):
+            if os.path.isfile(path):
                 os.remove(path)
 
     # Deletes capture folder.
