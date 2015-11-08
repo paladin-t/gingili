@@ -605,6 +605,9 @@ def try_revive():
     global dead_time
     global revive_interval
 
+    if dead_time == None:
+        return
+
     if time.time() - dead_time > revive_interval:
         cleanup()
 
