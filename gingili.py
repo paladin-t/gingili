@@ -450,22 +450,25 @@ def routine_alive():
     try:
         while True:
             s = None
-            for i in range(15):
-                pingaling = subprocess.Popen(["ping", "-c 2", alive_host], shell = False, stdin = subprocess.PIPE, stdout = subprocess.PIPE)
-                while True:
-                    pingaling.stdout.flush()
-                    line = pingaling.stdout.readline()
-                    if not line:
+            if alive_host != "0":
+                for i in range(15):
+                    pingaling = subprocess.Popen(["ping", "-c 2", alive_host], shell = False, stdin = subprocess.PIPE, stdout = subprocess.PIPE)
+                    while True:
+                        pingaling.stdout.flush()
+                        line = pingaling.stdout.readline()
+                        if not line:
+                            break
+
+                        igot = re.findall(lifeline,line)
+                        if igot != 0:
+                            s = igot
+
+                            break;
+
+                    if s != None:
                         break
-
-                    igot = re.findall(lifeline,line)
-                    if igot != 0:
-                        s = igot
-
-                        break;
-
-                if s != None:
-                    break
+            else:
+                s = True
 
             dead = s == None
 
