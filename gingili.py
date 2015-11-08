@@ -471,6 +471,7 @@ def routine_alive():
 
             if dead:
                 dead_time = time.time()
+                log("Dead.")
             else:
                 dead_time = None
 
@@ -636,6 +637,9 @@ def main():
 
     # Starts a thread to process email commands.
     check_command()
+
+    # Starts a thread to check whether network is alive.
+    check_alive()
 
     # Initializes states.
     occupied = False
