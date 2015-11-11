@@ -18,7 +18,8 @@ mobile phones do;
 to change monitor strategies;
  * GINGILI receives command via email to manage it;
  * GINGILI sends captured images via email if motion detected or an interval
-heartbeat triggered.
+heartbeat triggered;
+ * GINGILI reboots system when network come invalid.
 
 ## Requirement
 
@@ -75,7 +76,8 @@ time in seconds;
   * Command `pause` pauses monitoring;
   * Command `resume` resumes monitoring;
   * Command `request` requests to capture once and sends to applicant's email;
-  * Command `get` sends a capture once to receiver mail list.
+  * Command `get` sends a capture once to receiver mail list;
+  * Command `reboot` terminates GINGILI and reboots the system.
  * A thread checks whether an IP address in `family_list` is reachable, GINGILI
 will change to safe state (pause monitoring) if at least one IP is reachable.
 It's recommended to set the family Wifi router's policy to assign static IP
@@ -85,15 +87,9 @@ when your family were home, and changes to guard state if no family detected.
 with a specific interval even if no motion detected.
  * Main thread captures a sequence of frames and sends them to `mailto_list` if
 motion detected.
-
-## TODO
-
- * Security at night.
- * Sound alarm.
- * Synchronizes frames to web.
- * Gas/fire detection.
- * Voice control.
- * Inductive switch.
+ * A revive thread checks whether network is alive, it reboots the system if
+not. It's recommended to use `gingili.desktop` to let GINGILI start
+automatically when system booted.
 
 ## Note
 
