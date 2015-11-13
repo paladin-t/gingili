@@ -5,7 +5,7 @@ Copyright (C) 2015 [Wang Renxin](https://twitter.com/wangrenxin)
 ## Introduction
 
 GINGILI is a program which turns a Raspberry Pi into a smart home manager.
-Now it supplies guard monitor service using a USB webcam.
+Now it supplies watchdog monitor service using a USB webcam.
 
 ## Principle topoloty
 
