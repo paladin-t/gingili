@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Version 1.1.2
+# Version 1.1.3
 # License LGPL v3
 # Copyright (c) 2015 WRX. mailto:hellotony521@qq.com
 #
@@ -559,6 +559,8 @@ def check_command():
     t.setDaemon(True)
     t.start()
 
+    return t
+
 def parse_command(img):
     global command
     global command_from
@@ -649,7 +651,7 @@ def main():
     check_safe()
 
     # Starts a thread to process email commands.
-    check_command()
+    cmdck = check_command()
 
     # Starts a thread to check whether network is alive.
     check_alive()
@@ -700,6 +702,10 @@ def main():
             if not paused() and now - shot_timestamp > shot_interval:
                 shot_timestamp = now
                 shots.append(save(img))
+
+        # Ensure command checking thread is alive.
+        if not cmdck.is_alive():
+            cmdck = check_command()
 
         # Parses command.
         parse_command(img)
