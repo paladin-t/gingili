@@ -1,4 +1,4 @@
-**Copyright (C) 2015 [Wang Renxin](https://cn.linkedin.com/pub/wang-renxin/43/494/20). All rights reserved.**
+**Copyright (C) 2015 [Wang Renxin](https://github.com/paladin-t). All rights reserved.**
 
 ## Introduction
 
