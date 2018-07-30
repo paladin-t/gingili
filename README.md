@@ -1,7 +1,5 @@
 # GINGILI
 
-**Copyright (C) 2015 [Wang Renxin](https://github.com/paladin-t). All rights reserved.**
-
 ## Introduction
 
 GINGILI is a program which turns a Raspberry Pi into a smart home manager.
